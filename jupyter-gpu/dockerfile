@@ -1,0 +1,45 @@
+FROM saaa/openpose-gpu:latest
+
+## -------------- Install Python library --------------
+RUN pip3 --no-cache-dir install \
+    matplotlib \
+    jupyter
+
+## -------------- Set up Jupyter Notebook config --------------
+ENV CONFIG /root/.jupyter/jupyter_notebook_config.py
+ENV CONFIG_IPYTHON /root/.ipython/profile_default/ipython_config.py 
+
+RUN jupyter notebook --generate-config --allow-root && \
+    ipython profile create
+
+RUN echo "c.NotebookApp.ip = '*'" >>${CONFIG} && \
+    echo "c.NotebookApp.open_browser = False" >>${CONFIG} && \
+    echo "c.NotebookApp.iopub_data_rate_limit=10000000000" >>${CONFIG} && \
+    echo "c.MultiKernelManager.default_kernel_name = 'python3'" >>${CONFIG} 
+
+# %matplotlib inline を記入不要にする
+RUN echo "c.InteractiveShellApp.exec_lines = ['%matplotlib inline']" >>${CONFIG_IPYTHON} 
+
+# jupyter access port
+EXPOSE 8888 6006 
+
+
+## -------------- -------------- -------------- -------------- --------------
+
+# BUILD
+# sudo docker build . -t saaa/jupyter-gpu
+
+# RUN 
+# sudo docker run --rm -it --runtime=nvidia --net=host -e DISPLAY --device=/dev/video0:/dev/video0 -v $HOME/.Xauthority:/root/.Xauthority -v /home/sito/docker/notebooks:/notebooks saaa/jupyter-gpu bash
+
+
+# command inside docker
+# cd /notebooks && jupyter notebook --allow-root
+
+
+
+# If Run Jupyter Notebook
+#WORKDIR "/root/notebooks"
+#CMD ["jupyter","notebook", "--allow-root"]
+
+
