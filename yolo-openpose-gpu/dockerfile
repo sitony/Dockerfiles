@@ -1,0 +1,55 @@
+FROM saaa/openpose-gpu:latest
+
+## -------------- -------------- 
+# Install Yolo and Darknet
+
+# OpenCV is installed by apt-get as library
+# https://github.com/AlexeyAB/darknet
+# https://taktak.jp/2018/05/05/3007
+
+# config path
+RUN LD_LIBRARY_PATH=/usr/local/lib:/usr/lib; export LD_LIBRARY_PATH
+RUN ldconfig
+
+RUN mkdir /opt/darknet-data
+RUN cd /opt/darknet-data && wget https://pjreddie.com/media/files/yolov3.weights && \
+    wget https://pjreddie.com/media/files/yolov3-tiny.weights
+
+
+# build darknet
+RUN cd /opt && git clone https://github.com/pjreddie/darknet
+RUN cd /opt/darknet && sed -ie "s/GPU=0/GPU=1/g" Makefile && \
+    sed -ie "s/CUDNN=0/CUDNN=1/g" Makefile && sed -ie "s/OPENCV=0/OPENCV=1/g" Makefile
+RUN cd /opt/darknet && make 
+
+RUN mv /opt/darknet-data/* /opt/darknet
+
+WORKDIR /opt
+
+
+# PythonからYolo
+# https://qiita.com/zeze/items/18ae8e4ccb1eed9c979c
+# https://gist.github.com/ppq200/02c61b79e227d5395b9717160bb09f31
+# -------------- -------------- 
+
+
+# BUILD
+# sudo docker build . -t saaa/yolo-openpose-gpu
+
+# RUN
+# sudo docker run --rm -it --runtime=nvidia --net=host -e DISPLAY --device=/dev/video0:/dev/video0 -v $HOME/.Xauthority:/root/.Xauthority -v /home/sito/docker/notebooks:/notebooks saaa/yolo-openpose-gpu bash
+
+# Command inside the Docker
+# ./darknet detect cfg/yolov3.cfg yolov3.weights data/dog.jpg
+# webcam
+# ./darknet detector demo cfg/coco.data cfg/yolov3.cfg yolov3.weights
+# imtest
+# opencv TEST
+# ./darknet imtest data/eagle.jpg
+
+# python3 python/detector-opencv.py --video /notebooks/SillyWalks.mp4
+# RUN apt-get update && apt-get install nano
+# pip install scipy
+
+
+
