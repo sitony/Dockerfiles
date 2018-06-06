@@ -1,0 +1,76 @@
+FROM nvidia/cuda:8.0-cudnn5-devel-ubuntu16.04
+
+# Install dependencies for OpenPose
+RUN apt-get update && apt-get upgrade -y && apt-get install -y build-essential cmake sudo git wget \
+    apt-utils qt5-default cmake-qt-gui checkinstall pkg-config yasm gfortran lsb-release \
+    libatlas-base-dev libboost-all-dev libgflags-dev \
+    libgoogle-glog-dev libleveldb-dev liblmdb-dev libsnappy-dev libjasper-dev libpng12-dev \
+    libtiff5-dev libavcodec-dev  libdc1394-22-dev libxine2-dev libv4l-dev libgphoto2-dev \
+    libeigen3-dev libhdf5-serial-dev libhdf5-dev libgtk2.0-dev libtbb-dev libfaac-dev libmp3lame-dev \
+    libtheora-dev libvorbis-dev libxvidcore-dev libcanberra-gtk-module libcanberra-gtk3-module \
+    libopencv-dev libjpeg8-dev libavformat-dev libswscale-dev \
+    libgstreamer0.10-dev libgstreamer-plugins-base0.10-dev libgoogle-glog-dev libgflags-dev \
+    libopencore-amrnb-dev libopencore-amrwb-dev python-scipy python3-dev python3-pip \
+    libprotobuf-dev protobuf-compiler doxygen x264 v4l-utils \
+    python-dev python-numpy python-pip python-setuptools \
+    && rm -rf /var/lib/apt/lists/* 
+
+# OpenPose has version restriction
+RUN pip install numpy scipy matplotlib scikit-image scikit-learn ipython==5.7 && \
+    pip2 install -U pip==9.0.3 && pip3 install -U pip==9.0.3 && \
+    pip2 install --upgrade protobuf==2.6.1 && pip3 install --upgrade protobuf==2.6.1
+
+RUN cd /opt && git clone https://github.com/CMU-Perceptual-Computing-Lab/openpose
+RUN cd /opt/openpose && git pull origin master
+RUN cd /opt/openpose/3rdparty && git clone https://github.com/CMU-Perceptual-Computing-Lab/caffe
+RUN cd /opt/openpose/3rdparty/caffe && git checkout 9453eb00f6073ab9091f8a3a973538c7bdcb6785
+
+# cudaとcudnnはインストール済みなので、以下は実行不要。（実行するとエラー）
+# sudo ubuntu/install_cudnn.sh
+# sudo bash ./ubuntu/install_cmake.sh
+
+RUN mkdir /opt/openpose/build && cd /opt/openpose/build && cmake .. && make -j`nproc`
+
+# -----------------  -----------------  -----------------  
+# Install Chainer_Realtime_Multi-Person_Pose_Estimation
+
+RUN apt-get update && apt-get install -y python-opencv
+RUN pip2 install chainer && pip install chainer opencv-python scipy cupy-cuda80
+ENV QT_X11_NO_MITSHM 1
+
+RUN cd /opt && git clone https://github.com/DeNA/Chainer_Realtime_Multi-Person_Pose_Estimation
+RUN cd /opt/Chainer_Realtime_Multi-Person_Pose_Estimation/models && \
+    wget http://posefs1.perception.cs.cmu.edu/OpenPose/models/pose/coco/pose_iter_440000.caffemodel && \
+    wget http://posefs1.perception.cs.cmu.edu/OpenPose/models/face/pose_iter_116000.caffemodel && \
+    wget http://posefs1.perception.cs.cmu.edu/OpenPose/models/hand/pose_iter_102000.caffemodel && \
+    python convert_model.py posenet pose_iter_440000.caffemodel coco_posenet.npz && \
+    python convert_model.py facenet pose_iter_116000.caffemodel facenet.npz && \
+    python convert_model.py handnet pose_iter_102000.caffemodel handnet.npz
+
+
+# -----------------  -----------------  -----------------  
+
+# RUN apt-get install nano gedit
+
+# BUILD
+# sudo docker build . -t saaa/openpose-gpu
+
+# RUN
+# sudo docker run --rm -it --runtime=nvidia --net=host -e DISPLAY --device=/dev/video0:/dev/video0 -v $HOME/.Xauthority:/root/.Xauthority -v /home/sito/docker/notebooks:/notebooks saaa/openpose-gpu bash
+
+#:Command inside the Docker
+# https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/installation.md#openpose-building
+## OpenPose
+#::Sample video
+# ./build/examples/openpose/openpose.bin --video ./examples/media/video.avi --process_real_time
+#::Running on WebCam
+# ./build/examples/openpose/openpose.bin
+#::JSON Output + Rendered Images Saving
+# ./build/examples/openpose/openpose.bin --write_video output/result.avi --write_keypoint_json output/
+
+## Chainer OpenPose
+# https://github.com/DeNA/Chainer_Realtime_Multi-Person_Pose_Estimation/blob/master/README_JP.md
+# python3 pose_detector.py posenet models/coco_posenet.npz --img data/person.png --gpu 0
+
+
+
